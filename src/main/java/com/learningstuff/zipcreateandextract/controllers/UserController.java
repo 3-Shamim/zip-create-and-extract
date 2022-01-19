@@ -1,9 +1,8 @@
 package com.learningstuff.zipcreateandextract.controllers;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import com.learningstuff.zipcreateandextract.Utils.Util;
 import com.learningstuff.zipcreateandextract.models.User;
 import lombok.AllArgsConstructor;
 import org.apache.tomcat.util.http.fileupload.IOUtils;
@@ -45,11 +44,11 @@ import java.util.zip.ZipOutputStream;
 public class UserController {
 
     @GetMapping(value = "/zip-1")
-    public void zipFiles(HttpServletResponse response) throws IOException {
+    public void zipFiles1(HttpServletResponse response) throws IOException {
 
         //setting headers
         response.setStatus(HttpServletResponse.SC_OK);
-        response.addHeader("Content-Disposition", "attachment; filename=\"test.zip\"");
+        response.addHeader("Content-Disposition", "attachment; filename=\"zip-1.zip\"");
 
         ZipOutputStream zipOutputStream = new ZipOutputStream(response.getOutputStream());
 
@@ -73,9 +72,9 @@ public class UserController {
     }
 
     @GetMapping(value = "/zip-2")
-    public ResponseEntity<StreamingResponseBody> zipJson() {
+    public ResponseEntity<StreamingResponseBody> zipFiles2() {
 
-        return ResponseEntity.ok().header("Content-Disposition", "attachment; filename=\"test.zip\"").body(out -> {
+        return ResponseEntity.ok().header("Content-Disposition", "attachment; filename=\"zip-2.zip\"").body(out -> {
 
             ZipOutputStream zipOutputStream = new ZipOutputStream(out);
 
@@ -115,27 +114,17 @@ public class UserController {
     @GetMapping(value = "/zip-3")
     public ResponseEntity<StreamingResponseBody> zipJson1() {
 
-        return ResponseEntity.ok().header("Content-Disposition", "attachment; filename=\"test.zip\"").body(out -> {
+        return ResponseEntity.ok().header("Content-Disposition", "attachment; filename=\"zip-3.zip\"").body(out -> {
 
             var zipOutputStream = new ZipOutputStream(out);
 
             // create a list to add files to be zipped
             ArrayList<File> files = new ArrayList<>(2);
 
-            // temp file
-            Path tempFile = Files.createTempFile(null, ".json");
+            // List of temp file
 
-            // write class
-            List<User> users = new ArrayList<>();
 
-            for (int i = 0; i < 100; i++) {
-                users.add(new User("User --- " + i));
-            }
-
-            ObjectMapper mapper = new ObjectMapper();
-            ObjectWriter writer = mapper.writer(new DefaultPrettyPrinter());
-            writer.writeValue(tempFile.toFile(), users);
-
+            Path tempFile = Util.getTempJsonFileWithUsers(500000);
             files.add(tempFile.toFile());
 
             // package files
@@ -151,7 +140,56 @@ public class UserController {
             }
 
             zipOutputStream.close();
+
             Files.deleteIfExists(tempFile);
+
+        });
+    }
+
+    @GetMapping(value = "/zip-4")
+    public ResponseEntity<StreamingResponseBody> zipJson2() {
+
+        return ResponseEntity.ok().header("Content-Disposition", "attachment; filename=\"zip-4.zip\"").body(out -> {
+
+            var zipOutputStream = new ZipOutputStream(out);
+
+            // create a list to add files to be zipped
+            ArrayList<File> files = new ArrayList<>(2);
+
+            // List of temp file
+
+            List<Path> tempFiles = new ArrayList<>();
+
+            for (int i = 0; i < 100; i++) {
+                Path tempFile = Util.getTempJsonFileWithUsers(5000);
+                tempFiles.add(tempFile);
+                files.add(tempFile.toFile());
+            }
+
+            // package files
+            for (File file : files) {
+                //new zip entry and copying inputStream with file to zipOutputStream, after all closing streams
+                zipOutputStream.putNextEntry(new ZipEntry(file.getName()));
+                FileInputStream fileInputStream = new FileInputStream(file);
+
+                IOUtils.copy(fileInputStream, zipOutputStream);
+
+                fileInputStream.close();
+                zipOutputStream.closeEntry();
+            }
+
+            zipOutputStream.close();
+
+            tempFiles.forEach(path -> {
+
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            });
+
         });
     }
 
@@ -175,7 +213,7 @@ public class UserController {
             }
         }
 
-        return ResponseEntity.ok().body(users);
+        return ResponseEntity.ok().body(users.size());
     }
 
     @PostMapping(value = "/un-zip")
@@ -246,7 +284,7 @@ public class UserController {
             e.printStackTrace();
         }
 
-        return ResponseEntity.ok().body(users);
+        return ResponseEntity.ok().body(users.size());
     }
 
 }
